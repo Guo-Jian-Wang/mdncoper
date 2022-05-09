@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: mdncoper
+Version: 0.5.0
+Summary: Mixture Density Network Cosmological Parameter Estimator
+Home-page: UNKNOWN
+Author: Guojian Wang
+Author-email: gjwang2018@gmail.com
+License: MIT
+Description: UNKNOWN
+Keywords: pip,MDN
+Platform: any

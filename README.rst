@@ -26,9 +26,11 @@ The main dependencies of cmbnncs are:
 Installation
 ------------
 
-$ git clone https://github.com/Guo-Jian-Wang/mdncoper.git    
-$ cd mdncoper
-$ sudo python setup.py install
+You can install mdncoper by using::
+	
+	$ git clone https://github.com/Guo-Jian-Wang/mdncoper.git    
+	$ cd mdncoper
+	$ sudo python setup.py install
 
 
 

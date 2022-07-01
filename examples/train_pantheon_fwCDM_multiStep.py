@@ -141,6 +141,7 @@ predictor.print_info = True
 
 predictor.train(path='net_pantheon_steps', save_items=True, showIter_n=100)
 
+predictor.eco.plot_loss()
 
 #% chain
 chain_ann = predictor.chain_ann

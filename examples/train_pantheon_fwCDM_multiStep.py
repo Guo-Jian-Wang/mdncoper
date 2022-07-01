@@ -22,9 +22,6 @@ start_time = time.time()
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 
 # covariance = True
@@ -66,11 +63,11 @@ init_chain = None
 
 
 #%%
-stepStop_n = 3
+stepStop_n = 3 #the number of chains
 
-num_train = 3000
+num_train = 3000 #the number of samples in the training set
 
-num_vali = 500
+num_vali = 500 #the number of samples in the validation set
 
 spaceSigma = 5
 
@@ -83,7 +80,7 @@ comp_n = 3
 # print('comp_n: %s'%comp_n)
 
 
-epoch = 2000 #500, 1k, 2k, 3k, 4k, 5k
+epoch = 2000
 # print('epoch: %s'%epoch)
 
 
@@ -122,7 +119,7 @@ scale_params = True; independent_norm = True ##
 # scale_params = True; independent_norm = False 
 # scale_params = False; independent_norm = True #
 # scale_params = False; independent_norm = False
-# print('scale_params/independent_norm: %s/%s'%(scale_params, independent_norm))
+print('scale_params/independent_norm: %s/%s'%(scale_params, independent_norm))
 
 predictor = mdn.MDN(pantheon, model, param_names, params_dict=simulator.params_dict(),
                     cov_matrix=cov_matrix, init_chain=init_chain, init_params_space=init_params, 
@@ -143,13 +140,6 @@ predictor.independent_norm = independent_norm
 predictor.print_info = True
 
 predictor.train(path='net_pantheon_steps', save_items=True, showIter_n=100)
-# predictor.train(path='net_pantheon_steps', save_items=False, showIter_n=100)
-
-
-# predictor.plot_steps()
-# predictor.plot_contours(fill_contours=False, show_titles=True)
-# predictor.save_steps()
-# predictor.save_contours()
 
 
 #% chain

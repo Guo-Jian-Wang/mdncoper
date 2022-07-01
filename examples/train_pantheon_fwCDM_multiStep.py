@@ -63,11 +63,14 @@ init_chain = None
 
 
 #%%
-stepStop_n = 3 #the number of chains
+#the number of chains
+stepStop_n = 3 
 
-num_train = 3000 #the number of samples in the training set
+#the number of samples in the training set
+num_train = 3000
 
-num_vali = 500 #the number of samples in the validation set
+#the number of samples in the validation set
+num_vali = 500
 
 spaceSigma = 5
 
@@ -141,11 +144,13 @@ predictor.print_info = True
 
 predictor.train(path='net_pantheon_steps', save_items=True, showIter_n=100)
 
-predictor.eco.plot_loss()
 
 #% chain
 chain_ann = predictor.chain_ann
 utils.savenpy('net_pantheon_steps/chain_ann', 'chain_%s'%predictor.randn_num, chain_ann)
+
+
+predictor.eco.plot_loss()
 
 chain_all = [chain_ann, chain_mcmc]
 plc.Contours(chain_all).plot(labels=cosmic_params.ParamsProperty(param_names).labels,smooth=5,

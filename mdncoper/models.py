@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import sys
-# sys.path.append('../../../../..')
+# sys.path.append('../../../..')
 # from pycode.pytorchML.ecopann_master.ecopann.models import OneBranchMLP, MultiBranchMLP, LoadNet, LoadLoss, LoadChain
 # import pycode.pytorchML.ecopann_master.ecopann.data_processor as dp
 # import pycode.pytorchML.ecopann_master.ecopann.data_simulator as ds
@@ -25,16 +25,16 @@ from torch.autograd import Variable
 
 
 class OneBranchMDN(OneBranchMLP):
-    def __init__(self, spectra, parameters, param_names, obs_errors=None, cov_matrix=None, params_dict=None,
+    def __init__(self, train_set, param_names, vali_set=[None,None], obs_errors=None, cov_matrix=None, params_dict=None,
                  comp_type='Gaussian', comp_n=3, hidden_layer=3, activation_func='softplus',
                  noise_type='singleNormal', factor_sigma=1, multi_noise=5, sigma_scale_factor=1.0):
         #data
-        self.spectra = spectra
-        self.spectra_base = np.mean(spectra, axis=0)
-        self.params = parameters
-        self.params_base = np.mean(parameters, axis=0)
+        self.spectra, self.params = train_set
+        self.spectra_base = np.mean(self.spectra, axis=0)
+        self.params_base = np.mean(self.params, axis=0)
         self.param_names = param_names
         self.params_n = len(param_names)
+        self.spectra_vali, self.params_vali = vali_set
         self.obs_errors = obs_errors
         self.cholesky_factor = self._cholesky_factor(cov_matrix)
         self.params_dict = params_dict
@@ -62,7 +62,7 @@ class OneBranchMDN(OneBranchMLP):
         self.scale_params = True
         self.norm_inputs = True
         self.norm_target = True
-        self.independent_norm = False # ---> True???
+        self.independent_norm = False
         self.norm_type = 'z_score'
         #training
         self.spaceSigma_min = 5
@@ -84,6 +84,10 @@ class OneBranchMDN(OneBranchMLP):
             else:
                 self.net = fcnet.MultivariateGaussianMDN(node_in=self.node_in, node_out=self.node_out, hidden_layer=self.hidden_layer,
                                                           comp_n=self.comp_n, nodes=None, activation_func=self.activation_func)
+                # print('test __net, ??????')
+                # self.net = fcnet.GaussianMDN(node_in=self.node_in, node_out=self.node_out, hidden_layer=self.hidden_layer,
+                #                               comp_n=self.comp_n, nodes=None, activation_func=self.activation_func)
+            
         elif self.comp_type=='Beta':
             if self.params_n==1:
                 self.net = fcnet.BetaMDN(node_in=self.node_in, node_out=self.node_out, hidden_layer=self.hidden_layer,
@@ -108,6 +112,8 @@ class OneBranchMDN(OneBranchMLP):
                 return fcnet.gaussian_loss
             else:
                 return fcnet.multivariateGaussian_loss
+                # print('test __net, ??????')
+                # return fcnet.gaussian_loss
         elif self.comp_type=='Beta':
             if self.params_n==1:
                 return fcnet.beta_loss
@@ -155,23 +161,16 @@ class OneBranchMDN(OneBranchMLP):
         self.transfer_data()
         self.check_normType()
                 
-        self.loss = []
+        self.train_loss = []
+        self.vali_loss = []
         # np.random.seed(1000)#
         print('randn_num: %s'%self.randn_num)
         for subsample_num in range(1, self.epoch+1):
             self.inputs, self.target = ds.AddGaussianNoise(self.spectra,params=self.params,obs_errors=self.obs_errors,cholesky_factor=self.cholesky_factor,noise_type=self.noise_type,factor_sigma=self.factor_sigma,multi_noise=self.multi_noise,use_GPU=self.use_GPU).multiNoisySample(reorder=True)
+            self.inputs = self.preprocessing_input(self.inputs, self.spectra_base_torch, a=self.a, b=self.b)
+            self.target = self.preprocessing_target(self.target, a=self.a, b=self.b)
             
-            if self.scale_spectra:
-                self.inputs = self.inputs / self.spectra_base_torch
-            if self.norm_inputs:
-                self.inputs = dp.Normalize(self.inputs, self.spectra_statistic, norm_type=self.norm_type, a=self.a, b=self.b).norm()
-            if self.norm_target:
-                if self.independent_norm:
-                    for i in range(self.params_n):
-                        self.target[:,i] = dp.Normalize(self.target[:,i], self.params_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).norm()
-                else:
-                    self.target = dp.Normalize(self.target, self.params_statistic, norm_type=self.norm_type, a=self.a, b=self.b).norm()
-            
+            running_loss = []
             for iter_mid in range(1, self.iteration+1):
                 batch_index = np.random.choice(len(self.inputs), self.batch_size, replace=False)
                 # batch_index = np.random.choice(len(self.inputs), self.batch_size, replace=True) #test
@@ -181,12 +180,30 @@ class OneBranchMDN(OneBranchMLP):
                 yy = Variable(yy, requires_grad=False)
                 self.omega, self.mu_alpha, self.sigma_cholesky_beta = self.net(xx)
                 _loss = self.loss_func(self.omega, self.mu_alpha, self.sigma_cholesky_beta, yy, logsumexp=True)
-                self.loss.append(_loss.item())
+                # self.loss.append(_loss.item())
                 self.net.zero_grad()
                 _loss.backward()
                 self.optimizer.step()
+                running_loss.append(_loss.item())
+            loss_mean = np.mean(running_loss)
+            self.train_loss.append(loss_mean)
+            
+            #vali_loss
+            if self.spectra_vali is not None:
+                self.inputs_vali, self.target_vali = ds.AddGaussianNoise(self.spectra_vali,params=self.params_vali,obs_errors=self.obs_errors,cholesky_factor=self.cholesky_factor,noise_type=self.noise_type,factor_sigma=self.factor_sigma,multi_noise=self.multi_noise,use_GPU=self.use_GPU).multiNoisySample(reorder=True)
+                self.inputs_vali = self.preprocessing_input(self.inputs_vali, self.spectra_base_torch, a=self.a, b=self.b)
+                self.target_vali = self.preprocessing_target(self.target_vali, a=self.a, b=self.b)
+                self.net.eval()
+                omega_vali, mu_alpha_vali, sigma_cholesky_beta_vali = self.net(Variable(self.inputs_vali))
+                _vali_loss = self.loss_func(omega_vali, mu_alpha_vali, sigma_cholesky_beta_vali, Variable(self.target_vali, requires_grad=False), logsumexp=True)
+                self.vali_loss.append(_vali_loss.item())
+                self.net.train()
+            
             if subsample_num%showIter_n==0:
-                print('(epoch:%s/%s; loss:%.5f; lr:%.8f)'%(subsample_num, self.epoch, _loss.item(), self.optimizer.param_groups[0]['lr']))
+                if self.spectra_vali is None:
+                    print('(epoch:%s/%s; loss:%.5f; lr:%.8f)'%(subsample_num, self.epoch, loss_mean, self.optimizer.param_groups[0]['lr']))
+                else:
+                    print('(epoch:%s/%s; train_loss/vali_loss:%.5f/%.5f; lr:%.8f)'%(subsample_num, self.epoch, loss_mean, self.vali_loss[-1], self.optimizer.param_groups[0]['lr']))
             lrdc = optimize.LrDecay(subsample_num,iteration=self.epoch,lr=self.lr,lr_min=self.lr_min)
             self.optimizer.param_groups[0]['lr'] = lrdc.exp()
             
@@ -194,8 +211,9 @@ class OneBranchMDN(OneBranchMLP):
             self.net = self.net.module.cpu()
         else:
             self.net = self.net.cpu()
-        self.loss = np.array(self.loss)
-        return self.net, self.loss
+        self.train_loss = np.array(self.train_loss)
+        self.vali_loss = np.array(self.vali_loss)
+        return self.net, self.train_loss, self.vali_loss
     
     @property
     def sampler(self):
@@ -204,6 +222,8 @@ class OneBranchMDN(OneBranchMLP):
                 return fcnet.gaussian_sampler
             else:
                 return fcnet.multivariateGaussian_sampler
+                # print('test __net, ??????')
+                # return fcnet.gaussian_sampler
         elif self.comp_type=='Beta':
             if self.params_n==1:
                 return fcnet.beta_sampler
@@ -254,19 +274,9 @@ class OneBranchMDN(OneBranchMLP):
         obs_spectra = dp.numpy2torch(obs_spectra)
         obs_best = obs_spectra[:,1]
         self.obs_best_multi = torch.ones((chain_leng, len(obs_best))) * obs_best
-        if self.scale_spectra:
-            self.obs_best_multi = self.obs_best_multi / dp.numpy2torch(self.spectra_base)
-        if self.norm_inputs:
-            self.obs_best_multi = dp.Normalize(self.obs_best_multi, self.spectra_statistic, norm_type=self.norm_type, a=self.a, b=self.b).norm()
+        self.obs_best_multi = self.preprocessing_input(self.obs_best_multi, dp.numpy2torch(self.spectra_base), a=self.a, b=self.b)
         self.chain = self._predict(self.obs_best_multi, in_type='torch')
-        if self.norm_target:
-            if self.independent_norm:
-                for i in range(self.params_n):
-                    self.chain[:,i] = dp.InverseNormalize(self.chain[:,i], self.params_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).inverseNorm()
-            else:
-                self.chain = dp.InverseNormalize(self.chain, self.params_statistic, norm_type=self.norm_type, a=self.a, b=self.b).inverseNorm()
-        if self.scale_params:
-            self.chain = self.inverseScaling(self.chain)
+        self.chain = self.preprocessing_target_inv(self.chain, a=self.a, b=self.b)
         self.chain = self.cut_params(self.chain) #remove non-physical parameters
         # self.scale_chain() #test
         return self.chain
@@ -283,7 +293,7 @@ class OneBranchMDN(OneBranchMLP):
             fileName = 'loss_train%s_batch%s_epoch%s_comp%s_%s'%(len(self.params),self.batch_size,self.epoch,self.comp_n,self.randn_num)
         else:
             fileName = 'loss-%s_train%s_batch%s_epoch%s_comp%s_%s'%(sample,len(self.params),self.batch_size,self.epoch,self.comp_n,self.randn_num)
-        utils.savenpy(path+'/loss', fileName, self.loss)
+        utils.savenpy(path+'/loss', fileName, [self.train_loss, self.vali_loss])
     
     def save_chain(self, path='mdn', sample=None):
         if sample is None:
@@ -321,17 +331,17 @@ class RePredictOBMDN(OneBranchMDN, LoadNet, LoadLoss, LoadChain, LoadHparams):
     
 #%%
 class MultiBranchMDN(MultiBranchMLP):
-    def __init__(self, spectra, parameters, param_names, obs_errors=None, cov_matrix=None, params_dict=None,
+    def __init__(self, train_set, param_names, vali_set=[None,None], obs_errors=None, cov_matrix=None, params_dict=None,
                  comp_type='Gaussian', comp_n=3, branch_hiddenLayer=2, trunk_hiddenLayer=2,
                  activation_func='softplus', noise_type='singleNormal', factor_sigma=1, multi_noise=5):
         #data
-        self.spectra = spectra
-        self.branch_n = len(spectra)
-        self.spectra_base = [np.mean(spectra[i], axis=0) for i in range(self.branch_n)]
-        self.params = parameters
-        self.params_base = np.mean(parameters, axis=0)
+        self.spectra, self.params = train_set
+        self.branch_n = len(self.spectra)
+        self.spectra_base = [np.mean(self.spectra[i], axis=0) for i in range(self.branch_n)]
+        self.params_base = np.mean(self.params, axis=0)
         self.param_names = param_names
         self.params_n = len(param_names)
+        self.spectra_vali, self.params_vali = vali_set
         self.obs_errors = self._obs_errors(obs_errors)
         self.cholesky_factor = self._cholesky_factor(cov_matrix)
         self.params_dict = params_dict
@@ -498,18 +508,8 @@ class MultiBranchMDN(MultiBranchMLP):
         print('Training the trunk network')
         for subsample_num in range(1, self.epoch_branch+1):
             self.inputs, self.target = ds.AddGaussianNoise(self.spectra,params=self.params,obs_errors=self.obs_errors,cholesky_factor=self.cholesky_factor,noise_type=self.noise_type,factor_sigma=self.factor_sigma,multi_noise=self.multi_noise,use_GPU=self.use_GPU).multiNoisySample(reorder=True)
-            
-            if self.scale_spectra:
-                self.inputs = [self.inputs[i]/self.spectra_base_torch[i] for i in range(self.branch_n)] #to be tested !!!
-            if self.norm_inputs:
-                self.inputs = [dp.Normalize(self.inputs[i], self.spectra_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).norm() for i in range(self.branch_n)]
-            if self.norm_target:
-                if self.independent_norm:
-                    for i in range(self.params_n):
-                        self.target[:,i] = dp.Normalize(self.target[:,i], self.params_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).norm()
-                else:
-                    self.target = dp.Normalize(self.target, self.params_statistic, norm_type=self.norm_type, a=self.a, b=self.b).norm()
-            
+            self.inputs = self.preprocessing_multiBranch_input(self.inputs, self.spectra_base_torch, a=self.a, b=self.b)
+            self.target = self.preprocessing_multiBranch_target(self.target, a=self.a, b=self.b)
             for iter_mid in range(1, self.iteration+1):
                 batch_index = np.random.choice(len(self.inputs[0]), self.batch_size, replace=False)
                 xx = [self.inputs[i][batch_index] for i in range(self.branch_n)]
@@ -577,22 +577,14 @@ class MultiBranchMDN(MultiBranchMLP):
         if train_trunk:
             self._train_trunk(repeat_n=repeat_n, showIter_n=showIter_n, fix_lr=fix_lr, reduce_fix_lr=reduce_fix_lr)
         
-        self.loss = []
+        self.train_loss = []
+        self.vali_loss = []
         print('\nTraining the multibranch network')
         for subsample_num in range(1, self.epoch+1):
             self.inputs, self.target = ds.AddGaussianNoise(self.spectra,params=self.params,obs_errors=self.obs_errors,cholesky_factor=self.cholesky_factor,noise_type=self.noise_type,factor_sigma=self.factor_sigma,multi_noise=self.multi_noise,use_GPU=self.use_GPU).multiNoisySample(reorder=True)
-            
-            if self.scale_spectra:
-                self.inputs = [self.inputs[i]/self.spectra_base_torch[i] for i in range(self.branch_n)]
-            if self.norm_inputs:
-                self.inputs = [dp.Normalize(self.inputs[i], self.spectra_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).norm() for i in range(self.branch_n)]
-            if self.norm_target:
-                if self.independent_norm:
-                    for i in range(self.params_n):
-                        self.target[:,i] = dp.Normalize(self.target[:,i], self.params_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).norm()
-                else:
-                    self.target = dp.Normalize(self.target, self.params_statistic, norm_type=self.norm_type, a=self.a, b=self.b).norm()
-            
+            self.inputs = self.preprocessing_multiBranch_input(self.inputs, self.spectra_base_torch, a=self.a, b=self.b)
+            self.target = self.preprocessing_multiBranch_target(self.target, a=self.a, b=self.b)
+            running_loss = []
             for iter_mid in range(1, self.iteration+1):
                 batch_index = np.random.choice(len(self.inputs[0]), self.batch_size, replace=False)
                 xx = [self.inputs[i][batch_index] for i in range(self.branch_n)]
@@ -605,13 +597,32 @@ class MultiBranchMDN(MultiBranchMLP):
                 self.optimizer.zero_grad()
                 _loss.backward()
                 self.optimizer.step()
-                self.loss.append(_loss.item())
-                
+                running_loss.append(_loss.item())
+            loss_mean = np.mean(running_loss)
+            self.train_loss.append(loss_mean)
+            
+            #vali_loss
+            if self.spectra_vali is not None:
+                self.inputs_vali, self.target_vali = ds.AddGaussianNoise(self.spectra_vali,params=self.params_vali,obs_errors=self.obs_errors,cholesky_factor=self.cholesky_factor,noise_type=self.noise_type,factor_sigma=self.factor_sigma,multi_noise=self.multi_noise,use_GPU=self.use_GPU).multiNoisySample(reorder=True)
+                self.inputs_vali = self.preprocessing_multiBranch_input(self.inputs_vali, self.spectra_base_torch, a=self.a, b=self.b)
+                self.target_vali = self.preprocessing_multiBranch_target(self.target_vali, a=self.a, b=self.b)
+                self.net.eval()
+                omega_vali, mu_alpha_vali, sigma_cholesky_beta_vali = self.net([Variable(self.inputs_vali[i]) for i in range(self.branch_n)])
+                _vali_loss = self.loss_func(omega_vali, mu_alpha_vali, sigma_cholesky_beta_vali, Variable(self.target_vali, requires_grad=False), logsumexp=True)
+                self.vali_loss.append(_vali_loss.item())
+                self.net.train()
+
             if subsample_num%showIter_n==0:
                 if self.lr==self.lr_branch:
-                    print('(epoch:%s/%s; loss:%.5f; lr:%.8f)'%(subsample_num, self.epoch, self.loss[-1], self.optimizer.param_groups[0]['lr']))
+                    if self.spectra_vali is None:
+                        print('(epoch:%s/%s; loss:%.5f; lr:%.8f)'%(subsample_num, self.epoch, loss_mean, self.optimizer.param_groups[0]['lr']))
+                    else:
+                        print('(epoch:%s/%s; train_loss/vali_loss:%.5f/%.5f; lr:%.8f)'%(subsample_num, self.epoch, loss_mean, self.vali_loss[-1], self.optimizer.param_groups[0]['lr']))
                 else:
-                    print('(epoch:%s/%s; loss:%.5f; lr_branch:%.8f; lr_trunk:%.8f)'%(subsample_num, self.epoch, self.loss[-1], self.optimizer.param_groups[0]['lr'], self.optimizer.param_groups[-1]['lr']))
+                    if self.spectra_vali is None:
+                        print('(epoch:%s/%s; loss:%.5f; lr_branch:%.8f; lr_trunk:%.8f)'%(subsample_num, self.epoch, loss_mean, self.optimizer.param_groups[0]['lr'], self.optimizer.param_groups[-1]['lr']))
+                    else:
+                        print('(epoch:%s/%s; train_loss/vali_loss:%.5f/%.5f; lr_branch:%.8f; lr_trunk:%.8f)'%(subsample_num, self.epoch, loss_mean, self.vali_loss[-1], self.optimizer.param_groups[0]['lr'], self.optimizer.param_groups[-1]['lr']))
             lrdc_b = optimize.LrDecay(subsample_num,iteration=self.epoch,lr=self.lr_branch,lr_min=self.lr_min)#change to lr=self.lr ?
             for i in range(self.branch_n):
                 self.optimizer.param_groups[i]['lr'] = lrdc_b.exp()
@@ -623,8 +634,9 @@ class MultiBranchMDN(MultiBranchMLP):
             self.net = self.net.module.cpu()
         else:
             self.net = self.net.cpu()
-        self.loss = np.array(self.loss)
-        return self.net, self.loss
+        self.train_loss = np.array(self.train_loss)
+        self.vali_loss = np.array(self.vali_loss)
+        return self.net, self.train_loss
 
     @property
     def sampler(self):
@@ -679,19 +691,9 @@ class MultiBranchMDN(MultiBranchMLP):
         obs_spectra = [dp.numpy2torch(obs_spectra[i]) for i in range(len(obs_spectra))]
         obs_best = [obs_spectra[i][:,1] for i in range(len(obs_spectra))]
         obs_best_multi = [torch.ones((chain_leng, len(obs_best[i]))) * obs_best[i] for i in range(len(obs_spectra))]
-        if self.scale_spectra:
-            obs_best_multi = [obs_best_multi[i]/dp.numpy2torch(self.spectra_base[i]) for i in range(len(obs_spectra))]
-        if self.norm_inputs:
-            obs_best_multi = [dp.Normalize(obs_best_multi[i], self.spectra_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).norm() for i in range(len(obs_best_multi))]
+        obs_best_multi = self.preprocessing_multiBranch_input(obs_best_multi, [dp.numpy2torch(self.spectra_base[i]) for i in range(len(obs_spectra))], a=self.a, b=self.b)
         self.chain = self._predict(obs_best_multi, in_type='torch')
-        if self.norm_target:
-            if self.independent_norm:
-                for i in range(self.params_n):
-                    self.chain[:,i] = dp.InverseNormalize(self.chain[:,i], self.params_statistic[i], norm_type=self.norm_type, a=self.a, b=self.b).inverseNorm()
-            else:
-                self.chain = dp.InverseNormalize(self.chain, self.params_statistic, norm_type=self.norm_type, a=self.a, b=self.b).inverseNorm()
-        if self.scale_params:
-            self.chain = self.inverseScaling(self.chain)
+        self.chain = self.preprocessing_target_inv(self.chain, a=self.a, b=self.b)
         self.chain = self.cut_params(self.chain) #remove non-physical parameters
         return self.chain
     
@@ -707,7 +709,7 @@ class MultiBranchMDN(MultiBranchMLP):
             fileName = 'loss_branch%s_train%s_batch%s_epoch%s_epochBranch%s_comp%s_%s'%(self.branch_n,len(self.params),self.batch_size,self.epoch,self.epoch_branch,self.comp_n,self.randn_num)
         else:
             fileName = 'loss-%s_branch%s_train%s_batch%s_epoch%s_epochBranch%s_comp%s_%s'%(sample,self.branch_n,len(self.params),self.batch_size,self.epoch,self.epoch_branch,self.comp_n,self.randn_num)
-        utils.savenpy(path+'/loss', fileName, self.loss)
+        utils.savenpy(path+'/loss', fileName, [self.train_loss, self.vali_loss])
     
     def save_chain(self, path='mdn', sample='TT'):
         if sample is None:
@@ -725,7 +727,20 @@ class MultiBranchMDN(MultiBranchMLP):
                                                   self.scale_spectra, self.scale_params, self.norm_inputs, self.norm_target, self.independent_norm, self.norm_type, self.a, self.b, 
                                                   self.burnIn_step])
 
-class RePredictMBMDN(MultiBranchMDN, LoadNet, LoadLoss, LoadChain, LoadHparams):
+class LoadHparams_MB(object):
+    def __init__(self, path='ann', randn_num='0.123'):
+        self.path = path
+        self.randn_num = str(randn_num)
+
+    def load_hparams(self):
+        file_path = evaluate.FilePath(filedir=self.path+'/hparams', randn_num=self.randn_num, suffix='.npy').filePath()
+        self.spectra_statistic, self.params_statistic, self.spectra_base, self.params_base, self.param_names, self.params_dict, self.comp_type, self.scale_spectra, self.scale_params, self.norm_inputs, self.norm_target, self.independent_norm, self.norm_type, self.a, self.b, self.burnIn_step = np.load(file_path, allow_pickle=True)
+        self.params_n = len(self.param_names)
+        p_property = cosmic_params.ParamsProperty(self.param_names, params_dict=self.params_dict)
+        self.params_limit = p_property.params_limit
+        self.branch_n = len(self.spectra_statistic)
+
+class RePredictMBMDN(MultiBranchMDN, LoadNet, LoadLoss, LoadChain, LoadHparams_MB):
     def __init__(self, path='mdn', randn_num='0.123'):
         self.path = path
         self.randn_num = str(randn_num)

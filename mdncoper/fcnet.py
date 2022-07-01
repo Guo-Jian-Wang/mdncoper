@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import sys
-# sys.path.append('../../../../../..')
+# sys.path.append('../../../../..')
 # import pycode.pytorchML.ecopann_master.ecopann.sequence as seq
 # import pycode.pytorchML.ecopann_master.ecopann.nodeframe as nodeframe
 
@@ -60,7 +60,6 @@ def gaussian_loss(omega, mu, sigma, target, logsumexp=True):
     
     Note: It is better to set logsumexp=True
     """
-    # target = target.unsqueeze(1).expand_as(sigma)
     if logsumexp:
         #method 2 - each parameter has independent omega
         target = target.unsqueeze(2).expand_as(sigma)
@@ -272,7 +271,7 @@ class BetaMDN(torch.nn.Module):
         alpha = nn.Softplus()(x[:,self.node_out*self.comp_n:self.node_out*self.comp_n*2])
         alpha = alpha.view(-1, self.node_out, self.comp_n)
         beta = nn.Softplus()(x[:,self.node_out*self.comp_n*2:])
-        beta = beta.view(-1, self.node_out, self.comp_n)        
+        beta = beta.view(-1, self.node_out, self.comp_n)
         return omega, alpha, beta
 
 def beta_PDF(alpha, beta, target, log=True):
@@ -297,7 +296,6 @@ def beta_PDF(alpha, beta, target, log=True):
 def beta_loss(omega, alpha, beta, target, logsumexp=True):
     '''this loss should be updated !!!
     '''
-    # target = target.unsqueeze(1).expand_as(alpha)
     if logsumexp:
         #method 2 - each parameter has independent omega
         target = target.unsqueeze(2).expand_as(alpha)
@@ -409,7 +407,6 @@ def kum_PDF(a, b, target, log=True):
 def kum_loss(omega, a, b, target, logsumexp=True):
     '''this loss should be updated !!!
     '''
-    # target = target.unsqueeze(1).expand_as(a)
     if logsumexp:
         #method 2 - each parameter has independent omega
         target = target.unsqueeze(2).expand_as(a)

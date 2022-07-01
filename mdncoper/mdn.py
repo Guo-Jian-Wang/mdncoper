@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import sys
-# sys.path.append('../../../../..')
+# sys.path.append('../../../..')
 # import pycode.pytorchML.ecopann_master.ecopann.data_simulator as ds
 # import pycode.pytorchML.ecopann_master.ecopann.space_updater as su
 # import pycode.pytorchML.ecopann_master.ecopann.ann as ann
@@ -17,7 +17,7 @@ import numpy as np
 class MDN(ann.ANN):
     def __init__(self, obs_data, model, param_names, params_dict=None, cov_matrix=None, init_chain=None, init_params_space=None,
                  comp_type='Gaussian', comp_n=3, hidden_layer=3, branch_hiddenLayer=2, trunk_hiddenLayer=1, epoch=2000, epoch_branch=2000,
-                 num_train=3000, spaceSigma=5, space_type='hypercube', local_samples=None, stepStop_n=3):
+                 num_train=3000, num_vali=500, spaceSigma=5, space_type='hypercube', local_samples=None, stepStop_n=3):
         #observational data & cosmological model
         self.obs_data = obs_data
         self.model = model
@@ -43,6 +43,7 @@ class MDN(ann.ANN):
         self.auto_epoch = True
         #training set
         self.num_train = num_train
+        self.num_vali = num_vali
         self.spaceSigma = spaceSigma
         self.space_type = space_type
         self.base_N_max = 1500
@@ -59,8 +60,8 @@ class MDN(ann.ANN):
         self.independent_norm = False
         self.norm_type = 'z_score'
         #training
-        self.set_numpySeed = True
-        self.set_torchSeed = True
+        self.set_numpySeed = False #remove?
+        self.set_torchSeed = False #remove?
         self.train_branch = False
         self.repeat_n = 3
         #updating
@@ -135,7 +136,7 @@ class MDN(ann.ANN):
             #     training_n = self.num_train
             #test
             if burn_in:
-                training_n = self.num_train
+                training_n = self.num_train + self.num_vali
             else:
                 if max(updater.param_devs)<=0.5 and max(updater.error_devs)<=0.25:
                     training_n = self.num_train
@@ -195,12 +196,27 @@ class MDN(ann.ANN):
                randn_num=0.123, path='mdn', sample=None, save_items=True, 
                showIter_n=100, pred_epoch=100, miniStepStop_n=3):
         ##pred_epoch=100, miniStepStop_n=3, add this to OneBranchMDN, MultiBranchMDN???
+        if burn_in:
+            idx = np.random.choice(self.num_train+self.num_vali, self.num_train+self.num_vali, replace=False)
+            if self.branch_n==1:
+                train_set = [sim_spectra[idx[:self.num_train]], sim_params[idx[:self.num_train]]]
+                vali_set = [sim_spectra[idx[self.num_train:]], sim_params[idx[self.num_train:]]]
+            else:
+                sim_spectra_train = [sim_spectra[i][idx[:self.num_train]] for i in range(self.branch_n)]
+                sim_params_train = sim_params[idx[:self.num_train]]
+                sim_spectra_vali = [sim_spectra[i][idx[self.num_train:]] for i in range(self.branch_n)]
+                sim_params_vali = sim_params[idx[self.num_train:]]
+                train_set = [sim_spectra_train, sim_params_train]
+                vali_set = [sim_spectra_vali, sim_params_vali]
+        else:
+            train_set = [sim_spectra, sim_params]
+            vali_set = [None, None]
         if self.branch_n==1:
-            self.eco = models.OneBranchMDN(sim_spectra, sim_params, self.param_names, obs_errors=self.obs_errors, cov_matrix=self.cov_copy,
+            self.eco = models.OneBranchMDN(train_set, self.param_names, vali_set=vali_set, obs_errors=self.obs_errors, cov_matrix=self.cov_copy,
                                            comp_type=self.comp_type, comp_n=self.comp_n, hidden_layer=self.hidden_layer, activation_func=self.activation_func,
                                            noise_type=self.noise_type, factor_sigma=self.factor_sigma, multi_noise=self.multi_noise)
         else:
-            self.eco = models.MultiBranchMDN(sim_spectra, sim_params, self.param_names, obs_errors=self.obs_errors, cov_matrix=self.cov_copy,
+            self.eco = models.MultiBranchMDN(train_set, self.param_names, vali_set=vali_set, obs_errors=self.obs_errors, cov_matrix=self.cov_copy,
                                              comp_type=self.comp_type, comp_n=self.comp_n, branch_hiddenLayer=self.branch_hiddenLayer, trunk_hiddenLayer=self.trunk_hiddenLayer, activation_func=self.activation_func,
                                              noise_type=self.noise_type, factor_sigma=self.factor_sigma, multi_noise=self.multi_noise)
         self.eco.lr = self.lr
@@ -245,11 +261,4 @@ class MDN(ann.ANN):
             self.eco.save_chain(path=path, sample=sample_i)            
             self.eco.save_hparams(path=path, sample=sample_i)
         return chain_1
-
-    #change to chain_ann???
-    @property
-    def chain_mdn(self):
-        """Combined ANN chain using the result of steps after burn-in.
-        """
-        return np.concatenate(self.chains_good, axis=0)
 

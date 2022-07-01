@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import numpy as np
 from scipy import integrate
 import warnings
@@ -6,10 +7,25 @@ from astropy.utils.exceptions import AstropyDeprecationWarning
 warnings.simplefilter('ignore', category=AstropyDeprecationWarning)
 
 
+
+def params_dict():
+    """Information of cosmological parameters that include the labels and physical limits: [label, limit_min, limit_max]
+    
+    The label is used to plot figures. The physical limits are used to ensure that the simulated parameters have physical meaning.
+    
+    Note
+    ----
+    If the physical limits of parameters is unknown or there is no physical limits, it should be set to np.nan.
+    """
+    return {'omm'     : [r'$\Omega_{\rm m}$', 0.0, 1.0], #the matter density parameter
+            'w'       : [r'$w$', np.nan, np.nan], #parameter of wCDM model            
+            'muc'     : [r'$\mu_c$', np.nan, np.nan], #5*log10(c/H0/Mpc) + MB + 25
+            }
+
+
 class Simulate_mb(object):
-    def __init__(self, z, model_type='fwCDM'):
+    def __init__(self, z):
         self.z = z
-        self.model_type = model_type
         self.c = 2.99792458e5
     
     def fwCDM_E(self, x, w, omm):
@@ -26,22 +42,18 @@ class Simulate_mb(object):
     def fwCDM_mb(self, params):
         w, omm, mu0 = params
         dl = self.fwCDM_dl(self.z, w, omm, H0=70)
-        dl_equ = dl*70. / self.c
+        dl_equ = dl*70. / (self.c/1.0e3)
         return 5*np.log10(dl_equ) + mu0
         
     def simulate(self, sim_params):
-        if self.model_type=='fLCDM':
-            return self.z, self.fLCDM_mb(sim_params)
-        elif self.model_type=='fwCDM':
-            return self.z, self.fwCDM_mb(sim_params)
-
-    def load_params(self, local_sample):
-        return np.load('../../sim_data/'+local_sample+'/parameters.npy')
-
-    def load_params_space(self, local_sample):
-        return np.load('../../sim_data/'+local_sample+'/params_space.npy')
+        return self.z, self.fwCDM_mb(sim_params)
     
-    #new
-    def load_sample(self, local_sample):
-        return np.load('../../sim_data/'+local_sample+'/y.npy')
+    # def load_params(self, local_sample):
+    #     return np.load('../../sim_data/'+local_sample+'/parameters.npy')
+
+    # def load_params_space(self, local_sample):
+    #     return np.load('../../sim_data/'+local_sample+'/params_space.npy')
+    
+    # def load_sample(self, local_sample):
+    #     return np.load('../../sim_data/'+local_sample+'/y.npy')
 

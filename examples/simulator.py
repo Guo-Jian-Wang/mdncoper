@@ -26,7 +26,7 @@ def params_dict():
 class Simulate_mb(object):
     def __init__(self, z):
         self.z = z
-        self.c = 2.99792458e8
+        self.c = 2.99792458e5
     
     def fwCDM_E(self, x, w, omm):
         return 1./np.sqrt( omm*(1+x)**3 + (1-omm)*(1+x)**(3*(1+w)) )
@@ -42,7 +42,7 @@ class Simulate_mb(object):
     def fwCDM_mb(self, params):
         w, omm, mu0 = params
         dl = self.fwCDM_dl(self.z, w, omm, H0=70)
-        dl_equ = dl*70. / (self.c/1.0e3)
+        dl_equ = dl*70. / self.c
         return 5*np.log10(dl_equ) + mu0
         
     def simulate(self, sim_params):

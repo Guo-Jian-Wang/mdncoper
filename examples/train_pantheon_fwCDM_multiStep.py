@@ -27,8 +27,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 
-covariance = True #False, True
-covariance = False #False, True
+# covariance = True
+covariance = False
 
 
 #%% local data sets
@@ -66,9 +66,9 @@ init_chain = None
 
 
 #%%
-stepStop_n = 1
+stepStop_n = 3
 
-num_train = 2000
+num_train = 3000
 
 num_vali = 500
 

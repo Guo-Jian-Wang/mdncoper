@@ -9,6 +9,13 @@ MDNcoper can be applied to the research of cosmology and even other broader scie
 
 
 
+Attribution
+-----------
+
+If you use this code in your research, please cite `Guo-Jian Wang, Cheng Cheng, Yin-Zhe Ma, Jun-Qing Xia, ApJS, XXX, XXX (2022) <>`_.
+
+
+
 Dependencies
 ------------
 

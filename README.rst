@@ -19,7 +19,7 @@ If you use this code in your research, please cite `Guo-Jian Wang, Cheng Cheng, 
 Dependencies
 ------------
 
-The main dependencies of cmbnncs are:
+The main dependencies of mdncoper are:
 
 * `PyTorch <https://pytorch.org/>`_
 * `CUDA <https://developer.nvidia.com/cuda-downloads>`_

@@ -23,7 +23,7 @@ The main dependencies of mdncoper are:
 
 * `PyTorch <https://pytorch.org/>`_
 * `CUDA <https://developer.nvidia.com/cuda-downloads>`_
-* `ecopann-1.1.0 <https://github.com/Guo-Jian-Wang/ecopann>`_
+* `ecopann <https://github.com/Guo-Jian-Wang/ecopann>`_
 * `coplot-0.1.2 <https://github.com/Guo-Jian-Wang/coplot>`_
 * os
 * sys

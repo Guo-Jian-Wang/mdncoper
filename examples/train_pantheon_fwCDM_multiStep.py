@@ -64,10 +64,10 @@ init_chain = None
 
 #%%
 #the number of chains
-stepStop_n = 3 
+stepStop_n = 3 #3
 
 #the number of samples in the training set
-num_train = 3000
+num_train = 1000 #3000
 
 #the number of samples in the validation set
 num_vali = 500
@@ -83,7 +83,7 @@ comp_n = 3
 # print('comp_n: %s'%comp_n)
 
 
-epoch = 2000
+epoch = 2000 #2000
 # print('epoch: %s'%epoch)
 
 

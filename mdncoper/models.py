@@ -1,15 +1,4 @@
 # -*- coding: utf-8 -*-
-
-# import sys
-# sys.path.append('../../../..')
-# from pycode.pytorchML.ecopann_master.ecopann.models import OneBranchMLP, MultiBranchMLP, LoadNet, LoadLoss, LoadChain
-# import pycode.pytorchML.ecopann_master.ecopann.data_processor as dp
-# import pycode.pytorchML.ecopann_master.ecopann.data_simulator as ds
-# import pycode.pytorchML.ecopann_master.ecopann.optimize as optimize
-# import pycode.pytorchML.ecopann_master.ecopann.evaluate as evaluate
-# import pycode.pytorchML.ecopann_master.ecopann.utils as utils
-# import pycode.pytorchML.ecopann_master.ecopann.cosmic_params as cosmic_params
-
 from ecopann.models import OneBranchMLP, MultiBranchMLP, LoadNet, LoadLoss, LoadChain
 import ecopann.data_processor as dp
 import ecopann.data_simulator as ds

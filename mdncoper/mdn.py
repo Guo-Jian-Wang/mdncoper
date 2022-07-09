@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-
-# import sys
-# sys.path.append('../../../..')
-# import pycode.pytorchML.ecopann_master.ecopann.data_simulator as ds
-# import pycode.pytorchML.ecopann_master.ecopann.space_updater as su
-# import pycode.pytorchML.ecopann_master.ecopann.ann as ann
-
 import ecopann.data_simulator as ds
 import ecopann.space_updater as su
 import ecopann.ann as ann
@@ -193,9 +186,8 @@ class MDN(ann.ANN):
         return sim_spectra, sim_params, burn_in, burnIn_step, space_type_all, prev_space
     
     def _train(self, sim_spectra, sim_params, step=1, burn_in=False, burnIn_step=None, 
-               randn_num=0.123, path='mdn', sample=None, save_items=True, 
-               showIter_n=100, pred_epoch=100, miniStepStop_n=3):
-        ##pred_epoch=100, miniStepStop_n=3, add this to OneBranchMDN, MultiBranchMDN???
+               randn_num=0.123, sample=None, save_items=True, 
+               showIter_n=100):
         if burn_in:
             idx = np.random.choice(self.num_train+self.num_vali, self.num_train+self.num_vali, replace=False)
             if self.branch_n==1:
@@ -212,11 +204,11 @@ class MDN(ann.ANN):
             train_set = [sim_spectra, sim_params]
             vali_set = [None, None]
         if self.branch_n==1:
-            self.eco = models.OneBranchMDN(train_set, self.param_names, vali_set=vali_set, obs_errors=self.obs_errors, cov_matrix=self.cov_copy,
+            self.eco = models.OneBranchMDN(train_set, self.param_names, vali_set=vali_set, obs_errors=self.obs_errors, cov_matrix=self.cov_copy, params_dict=self.params_dict,
                                            comp_type=self.comp_type, comp_n=self.comp_n, hidden_layer=self.hidden_layer, activation_func=self.activation_func,
                                            noise_type=self.noise_type, factor_sigma=self.factor_sigma, multi_noise=self.multi_noise)
         else:
-            self.eco = models.MultiBranchMDN(train_set, self.param_names, vali_set=vali_set, obs_errors=self.obs_errors, cov_matrix=self.cov_copy,
+            self.eco = models.MultiBranchMDN(train_set, self.param_names, vali_set=vali_set, obs_errors=self.obs_errors, cov_matrix=self.cov_copy, params_dict=self.params_dict,
                                              comp_type=self.comp_type, comp_n=self.comp_n, branch_hiddenLayer=self.branch_hiddenLayer, trunk_hiddenLayer=self.trunk_hiddenLayer, activation_func=self.activation_func,
                                              noise_type=self.noise_type, factor_sigma=self.factor_sigma, multi_noise=self.multi_noise)
         self.eco.lr = self.lr
@@ -256,9 +248,9 @@ class MDN(ann.ANN):
         #save results
         if save_items:
             sample_i = '%s_step%s'%(sample, step) if sample is not None else None
-            self.eco.save_net(path=path, sample=sample_i)
-            self.eco.save_loss(path=path, sample=sample_i)
-            self.eco.save_chain(path=path, sample=sample_i)            
-            self.eco.save_hparams(path=path, sample=sample_i)
+            self.eco.save_net(path=self.path, sample=sample_i)
+            self.eco.save_loss(path=self.path, sample=sample_i)
+            self.eco.save_chain(path=self.path, sample=sample_i)            
+            self.eco.save_hparams(path=self.path, sample=sample_i)
         return chain_1
 

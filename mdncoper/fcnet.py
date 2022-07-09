@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-
-# import sys
-# sys.path.append('../../../../..')
-# import pycode.pytorchML.ecopann_master.ecopann.sequence as seq
-# import pycode.pytorchML.ecopann_master.ecopann.nodeframe as nodeframe
-
 import ecopann.sequence as seq
 import ecopann.nodeframe as nodeframe
 

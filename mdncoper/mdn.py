@@ -8,7 +8,7 @@ import numpy as np
 
 
 class MDN(ann.ANN):
-    def __init__(self, obs_data, model, param_names, params_dict=None, cov_matrix=None, init_chain=None, init_params_space=None,
+    def __init__(self, obs_data, model, param_names, params_dict=None, cov_matrix=None, init_chain=None, init_params=None,
                  comp_type='Gaussian', comp_n=3, hidden_layer=3, branch_hiddenLayer=2, trunk_hiddenLayer=1, epoch=2000, epoch_branch=2000,
                  num_train=3000, num_vali=500, spaceSigma=5, space_type='hypercube', local_samples=None, stepStop_n=3):
         #observational data & cosmological model
@@ -18,7 +18,7 @@ class MDN(ann.ANN):
         self.params_dict = params_dict
         self.cov_matrix = cov_matrix
         self.init_chain = init_chain
-        self.init_params_space = self._init_params_space(init_params_space)
+        self.init_params = self._init_params(init_params)
         #MDN model
         self.comp_type = comp_type
         self.comp_n = comp_n
@@ -82,11 +82,11 @@ class MDN(ann.ANN):
             space_type_all.append(s_type)
             print('\n'+'#'*25+' step {} '.format(step)+'#'*25)
             if self.branch_n==1:
-                simor = ds.SimSpectra(training_n, self.model, self.param_names, chain=self.init_chain, params_space=self.init_params_space, 
+                simor = ds.SimSpectra(training_n, self.model, self.param_names, chain=self.init_chain, params_space=self.init_params, 
                                       spaceSigma=self.spaceSigma, params_dict=self.params_dict, space_type=s_type, 
                                       cut_crossedLimit=True, local_samples=self.local_samples, prevStep_data=None)
             else:
-                simor = ds.SimMultiSpectra(self.branch_n, training_n, self.model, self.param_names, chain=self.init_chain, params_space=self.init_params_space, 
+                simor = ds.SimMultiSpectra(self.branch_n, training_n, self.model, self.param_names, chain=self.init_chain, params_space=self.init_params, 
                                            spaceSigma=self.spaceSigma, params_dict=self.params_dict, space_type=s_type, 
                                            cut_crossedLimit=True, local_samples=self.local_samples, prevStep_data=None)
             sim_spectra, sim_params = simor.simulate()
@@ -96,7 +96,7 @@ class MDN(ann.ANN):
                 chain_0 = self.init_chain
             elif step>=3:
                 chain_0 = chain_all[-2]
-            updater = su.UpdateParameterSpace(step,self.param_names,chain_all[-1],chain_0=chain_0,init_params_space=self.init_params_space,spaceSigma=self.spaceSigma,params_dict=self.params_dict)
+            updater = su.UpdateParameterSpace(step,self.param_names,chain_all[-1],chain_0=chain_0,init_params=self.init_params,spaceSigma=self.spaceSigma,params_dict=self.params_dict)
             if updater.small_dev(limit_dev=0.001):
                 #to be improved to get chain_ann after exit()???, or remove these two lines???
                 exit()

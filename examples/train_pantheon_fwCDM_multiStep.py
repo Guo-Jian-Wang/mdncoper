@@ -64,7 +64,7 @@ init_chain = None
 
 #%%
 #the number of chains
-stepStop_n = 3 #3
+stepStop_n = 1 #3
 
 #the number of samples in the training set
 num_train = 1000 #3000

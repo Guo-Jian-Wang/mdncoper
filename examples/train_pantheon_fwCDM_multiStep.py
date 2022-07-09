@@ -125,7 +125,7 @@ scale_params = True; independent_norm = True ##
 print('scale_params/independent_norm: %s/%s'%(scale_params, independent_norm))
 
 predictor = mdn.MDN(pantheon, model, param_names, params_dict=simulator.params_dict(),
-                    cov_matrix=cov_matrix, init_chain=init_chain, init_params_space=init_params, 
+                    cov_matrix=cov_matrix, init_chain=init_chain, init_params=init_params, 
                     comp_type=comp_type, comp_n=comp_n, hidden_layer=hidden_layer, epoch=epoch, 
                     num_train=num_train, num_vali=num_vali, spaceSigma=spaceSigma, space_type=space_type, 
                     local_samples=samples, stepStop_n=stepStop_n)
